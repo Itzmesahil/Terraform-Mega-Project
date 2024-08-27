@@ -1,0 +1,48 @@
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_instance" "apache-server" {
+  ami           = var.ami
+  instance_type = var.instance_type
+  key_name      = aws_key_pair.aws_key.id
+
+  # Provisioners
+  provisioner "file" {
+    source      = "web-script.sh"
+    destination = "/tmp/web-script.sh"
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("${path.module}/id_rsa")
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo chmod +x /tmp/web-script.sh",
+      "/tmp/web-script.sh",
+      "sudo systemctl restart apache2",
+      "sudo systemctl enable apache2"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"                      # Adjust if needed
+      private_key = file("${path.module}/id_rsa") # Path to your private SSH key
+      host        = self.public_ip                # Use the instance's public IP
+    }
+  }
+
+  provisioner "local-exec" {
+    command = "echo ${self.private_ip} >> private_ip.txt"
+  }
+
+  tags = {
+    Name = "database-instance"
+  }
+}
+
+
